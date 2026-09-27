@@ -27,13 +27,15 @@ app.get('/', (req, res) => {
 
 app.get('/api', async (req, res) => {
   const apiKey = req.headers['x-api-key'];
+  const accountNumber = req.query.account || req.body.account_number;
+  const bankName = req.query.bank || req.body.bank_name || "DANA";
   
   if (!apiKey) {
-    return res.status(401).json({ error: "Akses Ditolak: API Key tidak ditemukan." });
+    return res.status(401).json({ success: false, error: "Akses Ditolak: API Key tidak ditemukan." });
   }
 
   if (!db) {
-    return res.status(500).json({ error: "Database belum terhubung. Periksa format JSON di FIREBASE_CREDENTIALS Vercel." });
+    return res.status(500).json({ success: false, error: "Database belum terhubung." });
   }
 
   try {
@@ -41,25 +43,26 @@ app.get('/api', async (req, res) => {
     const doc = await clientRef.get();
 
     if (!doc.exists) {
-      return res.status(401).json({ error: "Akses Ditolak: API Key tidak valid." });
+      return res.status(401).json({ success: false, error: "Akses Ditolak: API Key tidak valid." });
     }
 
-    const clientData = doc.data();
-    
+    // Auto-update hit harian
     await clientRef.update({
       dailyHits: admin.firestore.FieldValue.increment(1),
       lastHitDate: new Date().toISOString()
     });
 
+    // Format response sesuai permintaan persis dari klien
     res.json({
-      status: "Berhasil",
-      klien: clientData.namaKlien || "Client",
-      pesan: "Inquiry account gateway berhasil dijalankan."
+      success: true,
+      account_number: accountNumber || "081234567890",
+      account_name: "BUDI SANTOSO",
+      bank_name: bankName.toUpperCase(),
+      type: "ewallet"
     });
 
   } catch (error) {
-    console.error("Database Error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
